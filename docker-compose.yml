@@ -1,0 +1,118 @@
+version: '3.8'
+
+services:
+  # Frontend web application
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - API_URL=http://api:8080
+      - RECOMMENDATION_URL=http://recommendation:8000
+    depends_on:
+      - api
+      - recommendation
+    networks:
+      - chopnow-network
+
+  # Admin panel
+  admin:
+    build:
+      context: ./apps/admin
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"
+    environment:
+      - NODE_ENV=production
+      - API_URL=http://api:8080
+    depends_on:
+      - api
+    networks:
+      - chopnow-network
+
+  # Backend API service
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/chopnow
+      - REDIS_URL=redis://redis:6379
+      - BLOCKCHAIN_URL=http://blockchain:9000
+      - RECOMMENDATION_URL=http://recommendation:8000
+      - JWT_SECRET=your-jwt-secret-key-here
+    depends_on:
+      - db
+      - redis
+      - blockchain
+    networks:
+      - chopnow-network
+
+  # Recommendation engine
+  recommendation:
+    build:
+      context: ./apps/recommendation
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/chopnow
+    depends_on:
+      - db
+    networks:
+      - chopnow-network
+
+  # Blockchain service
+  blockchain:
+    build:
+      context: ./packages/blockchain
+      dockerfile: Dockerfile
+    ports:
+      - "9000:9000"
+    environment:
+      - NODE_ENV=production
+      - STELLAR_NETWORK=testnet
+      - SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
+    volumes:
+      - blockchain-data:/app/data
+    networks:
+      - chopnow-network
+
+  # PostgreSQL database
+  db:
+    image: postgres:14
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=chopnow
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - chopnow-network
+
+  # Redis for caching and session management
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - chopnow-network
+
+networks:
+  chopnow-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  blockchain-data:
